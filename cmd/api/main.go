@@ -59,5 +59,6 @@ func main() {
 	err := srv.ListenAndServe()
 	logger.Fatal(err)
 
-	//Page 31
+	//Page 92
+	//command to run - git bash - "go run ./cmd/api"
 }

@@ -11,7 +11,27 @@ import (
 //Add a 'createMovieHandler' for the "Post /v1/movies" endpoint.
 //Returns the plain-text placeholder response
 func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "create a new movie")
+	//Declares an anonymous struct to thold the information that we expect to be in the HTTP request body
+	//(filed naes and types are subsets of the movie struct created earlier).
+	//This struct will be our *target decode destination*
+	var input struct {
+		Title   string   `json:"title"`
+		Year    int32    `json:"year"`
+		Runtime int32    `json:"runtime"`
+		Genres  []string `json:"genres"`
+	}
+
+	//Initialize new json.Decoder instance to read request bodys, and then use decode method to decode the body
+	//contents into the 'input' struct
+	//When we call the Decode() we pass a *pointer* to the input struct as the target decode destination.
+	//If there was an error during decoding, we use our generic errorResponse() helper to send 400 bad request
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	fmt.Fprintf(w, "%+v\n", input)
 }
 
 //Add a 'showMovieHandler' for the "Get /v1/movies/:id" endpoint.
