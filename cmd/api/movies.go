@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"firstAPI.jweaver11.net/internal/data" //pg 48 error
+	"firstAPI.jweaver11.net/internal/data"
+	"firstAPI.jweaver11.net/internal/validator"
 )
 
 //Add a 'createMovieHandler' for the "Post /v1/movies" endpoint.
@@ -15,10 +16,10 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 	//(filed naes and types are subsets of the movie struct created earlier).
 	//This struct will be our *target decode destination*
 	var input struct {
-		Title   string   `json:"title"`
-		Year    int32    `json:"year"`
-		Runtime int32    `json:"runtime"`
-		Genres  []string `json:"genres"`
+		Title   string       `json:"title"`
+		Year    int32        `json:"year"`
+		Runtime data.Runtime `json:"runtime"`
+		Genres  []string     `json:"genres"`
 	}
 
 	//Initialize new json.Decoder instance to read request bodys, and then use decode method to decode the body
@@ -28,6 +29,20 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 	err := app.readJSON(w, r, &input)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	movie := &data.Movie{
+		Title:   input.Title,
+		Year:    input.Year,
+		Runtime: input.Runtime,
+		Genres:  input.Genres,
+	}
+
+	v := validator.New()
+
+	if data.ValidateMovie(v, movie); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
