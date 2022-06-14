@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	//import pq driver so that it can register itself with the database/sql package.
+	_ "github.com/lib/pq" //Uses black identifier so compiler doesn't complain its not being used.
 )
 
 //Declares var 'version' as a global constant string containing the application version number. Will be dynamic later.
@@ -16,6 +21,9 @@ const version = "1.0.0"
 type config struct {
 	port int    //'port' is the network port for the server to listen on
 	env  string //'env' is the name of current operating environment for the app
+	db   struct {
+		dsn string
+	}
 }
 
 //Declares 'application' as a struct to hold dependecies for our HTTP handlers, helpers, and middleware. Will grow as we build
@@ -32,11 +40,25 @@ func main() {
 	//and the environment to 'development' if no other flags are provided
 	flag.IntVar(&cfg.port, "port", 4000, "API server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
+
+	//Read the DSN value from the db-dsn command-line flag into the config struct
+	//Default to using our development DSN if no flag is provided
+	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://greenlight:pa55word@localhost/greenlight", "PostgreSQL DSN") //Needs person change
+
 	flag.Parse()
 
 	//Initialize 'logger' a a new logger to write messages to the standard out stream
 	//Previxed with the current date and time.
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+
+	db, err := openDB(cfg)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	defer db.Close()
+
+	logger.Printf("database connection pool established")
 
 	//Declares 'app' as an instance of application struct, containing the config struct and the logger
 	app := &application{
@@ -56,9 +78,31 @@ func main() {
 
 	//Starts the HTTP server.
 	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 	logger.Fatal(err)
 
 	//Page 104
 	//command to run - git bash - "go run ./cmd/api"
+}
+
+func openDB(cfg config) (*sql.DB, error) {
+	//use the sqp.Open() to create an empty connection pool, using the DSN from the config strucg
+	db, err := sql.Open("postgres", cfg.db.dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	//create context with a 5 second timeout deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	//use 'PingContext()' to establish a new connection to the database, passing in the context we created above
+	//as the parameter. If the connection couldn't be established successfully within the 6 second deadline,
+	//will return an error
+	err = db.PingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
