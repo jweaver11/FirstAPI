@@ -43,7 +43,7 @@ func main() {
 
 	//Read the DSN value from the db-dsn command-line flag into the config struct
 	//Default to using our development DSN if no flag is provided
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://greenlight:pa55word@localhost/greenlight", "PostgreSQL DSN") //Needs person change
+	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://firstapidbuser:pa55word@localhost/firstapidb?sslmode=disable", "PostgreSQL DSN") //Needs person change
 
 	flag.Parse()
 
@@ -80,9 +80,6 @@ func main() {
 	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
 	err = srv.ListenAndServe()
 	logger.Fatal(err)
-
-	//Page 104
-	//command to run - git bash - "go run ./cmd/api"
 }
 
 func openDB(cfg config) (*sql.DB, error) {
@@ -106,3 +103,6 @@ func openDB(cfg config) (*sql.DB, error) {
 
 	return db, nil
 }
+
+//Page 114 mid page
+//command to run - git bash - "go run ./cmd/api"
