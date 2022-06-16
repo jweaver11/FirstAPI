@@ -22,7 +22,10 @@ type config struct {
 	port int    //'port' is the network port for the server to listen on
 	env  string //'env' is the name of current operating environment for the app
 	db   struct {
-		dsn string
+		dsn          string
+		maxOpenConns int
+		maxIdleConns int
+		maxIdleTime  string
 	}
 }
 
@@ -43,7 +46,12 @@ func main() {
 
 	//Read the DSN value from the db-dsn command-line flag into the config struct
 	//Default to using our development DSN if no flag is provided
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://firstapidbuser:pa55word@localhost/firstapidb?sslmode=disable", "PostgreSQL DSN") //Needs person change
+	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("FIRSTAPIDB_DB_DSN"), "PostgreSQL DSN") //Needs person change
+
+	//Read connection pool settings from command-line flags into config struct.
+	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
+	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
+	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
 
 	flag.Parse()
 
@@ -89,6 +97,21 @@ func openDB(cfg config) (*sql.DB, error) {
 		return nil, err
 	}
 
+	//Set max number of open connections in the pool
+	db.SetMaxOpenConns(cfg.db.maxOpenConns)
+
+	//Set max number of idle connections in the pool.
+	db.SetMaxIdleConns(cfg.db.maxIdleConns)
+
+	//Use the 'time.ParseDuration()' function to conver the idle timeout duration string to a 'time.Duration' type
+	duration, err := time.ParseDuration(cfg.db.maxIdleTime)
+	if err != nil {
+		return nil, err
+	}
+
+	//Set max idle timeout
+	db.SetConnMaxIdleTime(duration)
+
 	//create context with a 5 second timeout deadline.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -104,5 +127,5 @@ func openDB(cfg config) (*sql.DB, error) {
 	return db, nil
 }
 
-//Page 114 mid page
+//Page 126
 //command to run - git bash - "go run ./cmd/api"
