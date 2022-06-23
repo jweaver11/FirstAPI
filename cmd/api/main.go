@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"firstAPI.jweaver11.net/internal/data"
 	//import pq driver so that it can register itself with the database/sql package.
 	_ "github.com/lib/pq" //Uses black identifier so compiler doesn't complain its not being used.
 )
@@ -33,6 +34,7 @@ type config struct {
 type application struct {
 	config config      //copy of config struct
 	logger *log.Logger //'logger' is a logger
+	models data.Models
 }
 
 //MAIN FUNCTION***************************************************************************************************************
@@ -72,6 +74,7 @@ func main() {
 	app := &application{
 		config: cfg,
 		logger: logger,
+		models: data.NewModels(db),
 	}
 
 	//Declares a HTTP server with some sensible timeout settings, which listens to provided port in the config struct
@@ -86,6 +89,7 @@ func main() {
 
 	//Starts the HTTP server.
 	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
+
 	err = srv.ListenAndServe()
 	logger.Fatal(err)
 }
@@ -127,5 +131,5 @@ func openDB(cfg config) (*sql.DB, error) {
 	return db, nil
 }
 
-//Page 134
+//Page 149
 //command to run - git bash - "go run ./cmd/api"

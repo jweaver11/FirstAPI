@@ -1,10 +1,74 @@
 package data
 
 import (
+	"database/sql"
 	"time"
 
 	"firstAPI.jweaver11.net/internal/validator"
+
+	"github.com/lib/pq"
 )
+
+//Define 'MovieModel' struct which wraps a sql.DB connection pool
+type MovieModel struct {
+	DB *sql.DB
+}
+
+//Add a placeholder method for inserting a new recod in the movies table
+func (m MovieModel) Insert(movie *Movie) error {
+	//define the SQL query for inserting a new record in the movies table and returning the system-generated data
+	query := `
+		INSERT INTO movies (title, year, runtime, genres)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at, version`
+
+	//Create an args slice containing the values for the placeholder parameters from the movie struct.
+	//Declaring this slice immediately next to our SQL query helps to make it clear *What values are uses where* in query
+	args := []interface{}{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
+
+	//Use the QueryRow() method to execute the SQL query on our connection pool, passing in the args slice as a variadic
+	//parameter and scanning the system genereated id, created_at and version values into the movie struct
+	return m.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+}
+
+//Add a placeholder method for fetching a specific record fromt he movies table
+func (m MovieModel) Get(id int64) (*Movie, error) {
+	return nil, nil
+}
+
+//Add a placeholder method for updating a specific record in the movies table.
+func (m MovieModel) Update(movie *Movie) error {
+	return nil
+}
+
+//Add a placeholder method for deleting a specific record from the movies table
+func (m MovieModel) Delete(id int64) error {
+	return nil
+}
+
+type MockMovieModel struct{}
+
+func (m MockMovieModel) Insert(movie *Movie) error {
+	//Mock the action...
+	return nil
+}
+
+func (m MockMovieModel) Get(id int64) (*Movie, error) {
+	//Mock the action...
+	return nil, nil
+}
+
+func (m MockMovieModel) Update(movie *Movie) error {
+	//Mock the action...
+	return nil
+
+}
+
+func (m MockMovieModel) Delete(id int64) error {
+	//Mock the action...
+	return nil
+
+}
 
 type Movie struct {
 	ID        int64     `json:"id"`                //Unique integer ID for the movie
