@@ -8,6 +8,7 @@ import (
 //Define a custom ErrRecordNotFound error. This returns from our Get() method when movie doesn't exist in our database
 var (
 	ErrRecordNotFound = errors.New("record not found")
+	ErrEditConflict   = errors.New("edit conflict")
 )
 
 //Creeate a Models struct which wraps the MovieModel. We'll add other models to this,

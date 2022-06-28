@@ -120,10 +120,10 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 
 	//Declare an input struct to hold the expected fata from client
 	var input struct {
-		Title   string       `json:"title"`
-		Year    int32        `json:"year"`
-		Runtime data.Runtime `json:"runtime"`
-		Genres  []string     `json:"genres"`
+		Title   *string       `json:"title"`
+		Year    *int32        `json:"year"`
+		Runtime *data.Runtime `json:"runtime"`
+		Genres  []string      `json:"genres"`
 	}
 
 	//Read the JSON request body data into the iput strucdt
@@ -133,11 +133,24 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	//Copy the values from the request body to the appropriate fields of the movie record
-	movie.Title = input.Title
-	movie.Year = input.Year
-	movie.Runtime = input.Runtime
-	movie.Genres = input.Genres
+	//If the input.Title value is nil then we know no corresponding "title" key value pair was provided in the JSON body request.
+	//We leave the movie record unchanged, otherwise we update the movie record with new title.
+	//Since it is a pointer now, we need to dereference the pointer using the * operator to get underlying value before
+	//assigning it to movie record
+	if input.Title != nil {
+		movie.Title = *input.Title
+	}
+
+	//We also do the same for other fileds in input struct
+	if input.Year != nil {
+		movie.Year = *input.Year
+	}
+	if input.Runtime != nil {
+		movie.Runtime = *input.Runtime
+	}
+	if input.Genres != nil {
+		movie.Genres = input.Genres //We dont deference a slice
+	}
 
 	//Validate the updated movie record, sending the client 422 uprocessable entit response if any checks fail
 	v := validator.New()
@@ -147,10 +160,15 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	//pass the updated movie record to our new Update method
+	//Intercept any ErrEditConflict error to call the new editConflictResponse() helper
 	err = app.models.Movies.Update(movie)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 

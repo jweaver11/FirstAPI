@@ -131,5 +131,5 @@ func openDB(cfg config) (*sql.DB, error) {
 	return db, nil
 }
 
-//Page 164
+//Page 188
 //command to run - git bash - "go run ./cmd/api"

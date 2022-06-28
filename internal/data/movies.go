@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"time"
@@ -27,9 +28,12 @@ func (m MovieModel) Insert(movie *Movie) error {
 	//Declaring this slice immediately next to our SQL query helps to make it clear *What values are uses where* in query
 	args := []interface{}{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	//Use the QueryRow() method to execute the SQL query on our connection pool, passing in the args slice as a variadic
 	//parameter and scanning the system genereated id, created_at and version values into the movie struct
-	return m.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+	return m.DB.QueryRowContext(ctx, query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
 }
 
 //Add a placeholder method for fetching a specific record fromt he movies table
@@ -41,6 +45,7 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 	}
 
 	//Define the SQL query for retrieving the movie data
+	//Makes our database sleep for 10 seconds before return response
 	query := `
 		SELECT id, created_at, title, year, runtime, genres, version
 		FROM movies
@@ -48,9 +53,13 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 
 	var movie Movie
 
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
 	//Execute the query using the QueryRow() method, passing in the providied id value as a placeholder parameter, and scan the
 	//response data into the fileds of Movie struct. We convert the scan target for the genres column using the pq.Array() adapter function
-	err := m.DB.QueryRow(query, id).Scan(
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&movie.ID,
 		&movie.CreatedAt,
 		&movie.Title,
@@ -80,7 +89,7 @@ func (m MovieModel) Update(movie *Movie) error {
 	query := `
 		UPDATE movies
 		SET title = $1, year = $2, runtime = $3, genres = $4, version = version + 1
-		WHERE id = $5
+		WHERE id = $5 AND version = $6
 		RETURNING version`
 
 	//create an args slice containing the values for the placeholder parameters
@@ -90,10 +99,26 @@ func (m MovieModel) Update(movie *Movie) error {
 		movie.Runtime,
 		pq.Array(movie.Genres),
 		movie.ID,
+		movie.Version, //add the expected movie version
 	}
 
-	//Use the QueryRow() method to execute query, passing the args slice as a variadic parameter and scanning new version value
-	return m.DB.QueryRow(query, args...).Scan(&movie.Version)
+	//Create a context with a 3-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	//Execute the SQL query. If no matching row could be found, we know th emovie version has changed (or that record
+	//has been deleted) and we return our custom ErrEditConflict error
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&movie.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+
+	return nil
 }
 
 //Add a placeholder method for deleting a specific record from the movies table
@@ -108,9 +133,13 @@ func (m MovieModel) Delete(id int64) error {
 		DELETE FROM movies
 		WHERE id = $1`
 
+	//Create a context with a 3-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	//Execute the SQL query using the Exec() method, passing in the id variables as the value for the placeholder parameter
 	//The Exec() method returns a sql.Result object
-	result, err := m.DB.Exec(query, id)
+	result, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
