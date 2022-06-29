@@ -131,5 +131,5 @@ func openDB(cfg config) (*sql.DB, error) {
 	return db, nil
 }
 
-//Page 188
+//Page 204 - chapter 9.3 doesnt run correctly
 //command to run - git bash - "go run ./cmd/api"

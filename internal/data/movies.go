@@ -211,3 +211,58 @@ func ValidateMovie(v *validator.Validator, movie *Movie) {
 
 	v.Check(validator.Unique(movie.Genres), "genres", "must not contain dupliate values")
 }
+
+//Create a new 'GetAll()' method which returns a slice of movies. We set these up to accept the various filter parameters as arguments
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, error) {
+	//Construct the SQL query to retrieve all movie records
+	query := `
+	SELECT id, created_at, title, year, runtime, genres, version
+	FROM movies
+	ORDER BY id`
+
+	//Create a context with a 3-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	//Use the QueryContext() to execute the query. Returns the sql.Rows resultset with the result
+	rows, err := m.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	//defer a call to rows.Close() to ensure that the resultset is closed before 'GetAll()' returns
+	defer rows.Close()
+
+	//Initialize an empty slice to hold movie data
+	movies := []*Movie{}
+
+	//use rows.Next to iterate through the rows in the resultset
+	for rows.Next() {
+		//Initialize an empty Movie struct to hold the data for an individual movie
+		var movie Movie
+
+		//Scan the values from row into movie struct
+		err := rows.Scan(
+			&movie.ID,
+			&movie.CreatedAt,
+			&movie.Title,
+			&movie.Year,
+			&movie.Runtime,
+			pq.Array(&movie.Genres),
+			&movie.Version,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		//Add the Movie struct to the slice
+		movies = append(movies, &movie)
+	}
+
+	//When the rows.Next() loop has finished, call rows.Err() to retrieve any error encountered
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return movies, nil
+}

@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+
+	"firstAPI.jweaver11.net/internal/validator"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -111,4 +114,51 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 	}
 
 	return nil
+}
+
+//'readString()' helper returns a string value from the query string, or provided default value if key unavailable
+func (app *application) readString(qs url.Values, key string, defaultValue string) string {
+	//Extract the value for a given key from the query string.
+	s := qs.Get(key)
+
+	//if no key exists or value is empty, it returns default value
+	if s == "" {
+		return defaultValue
+	}
+
+	//Otherwise return the string
+	return s
+}
+
+//'readCSV() helper reads a string value from query string and splits it into a  slice on the comma
+//If no matching eky could be found,, it returns the provided default value
+func (app *application) readCSV(qs url.Values, key string, defaultValue []string) []string {
+	//Extract the value from the query string
+	csv := qs.Get(key)
+
+	if csv == "" {
+		return defaultValue
+	}
+
+	return strings.Split(csv, ",")
+}
+
+//'redInt()' helper reads a string value from query string and converts it to integer before returning
+//records and error message if value can't be converted
+func (app *application) readInt(qs url.Values, key string, defaultValue int, v *validator.Validator) int {
+	//Extract the value from the query string
+	s := qs.Get(key)
+
+	if s == "" {
+		return defaultValue
+	}
+
+	//try to conver the value to int, returns error if fails
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		v.AddError(key, "must be an integer value")
+		return defaultValue
+	}
+
+	return i
 }
